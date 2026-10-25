@@ -1,0 +1,1339 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Upon.dev</title>
+<meta name="description" content="Upon.dev is a media technology and AI consultancy building storytelling infrastructure. In stealth.">
+<meta name="theme-color" content="#fafaf7">
+<meta property="og:title" content="Upon.dev">
+<meta property="og:description" content="Once upon a time… Storytelling infrastructure. In stealth.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%23fafaf7'/%3E%3Ctext x='32' y='46' font-family='Georgia,serif' font-style='italic' font-size='44' text-anchor='middle' fill='%230b0b0b'%3EU%3C/text%3E%3Crect x='14' y='52' width='36' height='3' fill='%2346b386'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,300;1,6..72,300&family=IBM+Plex+Mono:wght@400;500&family=Inter:ital,opsz,wght@0,14..32,900;1,14..32,900&display=swap">
+<style>
+html, body { margin: 0; padding: 0; }
+/* Layout: a film in one screen. It opens on a blank white page, passes through cave, press, living room and phone, and ends inside the matrix. */
+:root {
+  --page: #fafaf7;         /* the blank page */
+  --ink: #0b0b0b;          /* type on the page */
+  --night: #06080a;        /* the matrix ground */
+  --rain: #46b386;         /* phosphor jade */
+  --rain-ink: #157a50;     /* jade dark enough for the white page */
+  --rain-hi: #d4f7e4;
+  --gold: #e3b95c;
+  --paper: #efe6d2;        /* captions over the scenes */
+  --muted: #8a8f8c;
+  --f-story: "Newsreader", "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+  --f-code: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  color-scheme: light;
+}
+
+html, body { height: 100%; }
+body {
+  background: var(--page);
+  color: var(--ink);
+  font-family: var(--f-code);
+  font-size: 14px;
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+  transition: background-color 1.2s ease;
+}
+.matrix body, body.matrix { background: var(--night); }
+
+canvas.layer {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 1.4s ease;
+}
+#scene { z-index: 0; }
+video.film {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  background: var(--night);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s linear;
+}
+video.film.on { opacity: 1; }
+.in-matrix video.film { opacity: 0; transition: opacity 0.6s ease; }
+#rain { z-index: 0; }
+/* the film ends on flat --night, so the rain can rise out of the same colour */
+.in-matrix #rain { transition: opacity 2.4s ease; }
+/* Knockout words over the film: a dark veil with the word cut out of it, drawn by the site so it fills any screen */
+#ko { position: fixed; inset: 0; z-index: 1; pointer-events: none; --dim: .75; --lift: 2; --fade: .35s; --floor: rgba(255, 236, 210, .06); }
+#ko .ko { position: absolute; inset: 0; opacity: 0; visibility: hidden; transition: opacity var(--fade) ease, visibility 0s linear var(--fade); }
+#ko .ko.on { opacity: 1; visibility: visible; transition: opacity var(--fade) ease, visibility 0s; }
+#ko .ko > div { position: absolute; inset: 0; -webkit-mask-size: 100% 100%; mask-size: 100% 100%; }
+/* one consistent ground behind every word */
+#ko .dim { background: rgba(6, 8, 10, var(--dim)); }
+/* The letters auto-expose. --lift brightens the film behind the word; --floor lifts its blacks with the
+   scene's own colour, so a mostly black shot (the radio) opens up like a grade, without more saturation. */
+#ko .lift { background: var(--floor); -webkit-backdrop-filter: brightness(var(--lift)) contrast(1.1) saturate(1.2); backdrop-filter: brightness(var(--lift)) contrast(1.1) saturate(1.2); }
+/* ---- experiments ---- */
+#ko .dim { background: var(--veil, rgba(6, 8, 10, var(--dim))); }
+#ko.solid .lift { background: var(--type); }
+#ko .ko.off { visibility: hidden !important; transition: none !important; }
+#ko.jit { transform: scale(1.025); }
+#fx { position: fixed; inset: 0; z-index: 1; pointer-events: none; opacity: 0; background: #fff; transition: opacity var(--fxfade, 0s) ease-out; }
+#fx.on { opacity: var(--fxo, 1); transition: none; }
+video.film { transition: opacity 0.2s linear, transform 0.22s ease-out; }
+video.film.punch { transform: scale(1.09); transition: none; }
+video.film.inv { filter: invert(1) contrast(1.4); }
+html.pre body { background: var(--pre-bg) !important; transition: none !important; }
+html.pre .line, html.pre .line2 { color: var(--pre-ink) !important; transition: none !important; }
+html.pre .line .u { background-image: linear-gradient(currentColor, currentColor); }
+html.pre .line.jit, html.pre .line2.jit { transform: translateY(-7vh) scale(1.03); }
+#snd { position: fixed; left: 16px; bottom: 14px; z-index: 9; font: 500 12px/1 "IBM Plex Mono", monospace; color: var(--muted); background: none; border: 0; padding: 8px 0; cursor: pointer; }
+.matrix #snd, body.matrix #snd { color: #8a8f8c; }
+#warn { position: fixed; inset: 0; z-index: 10; display: none; place-items: center; background: rgba(0, 0, 0, .85); padding: 16px; }
+#warn.on { display: grid; }
+#warn div { max-width: 420px; color: #f2f7f4; font: 400 14px/1.6 "IBM Plex Mono", monospace; text-align: center; }
+#warn b { display: block; font-size: 16px; margin-bottom: 8px; }
+#warn button { margin: 18px 6px 0; font: 500 13px/1 "IBM Plex Mono", monospace; padding: 10px 14px; border-radius: 999px; border: 1px solid #f2f7f4; background: #f2f7f4; color: #000; cursor: pointer; }
+#warn button.no { background: transparent; color: #f2f7f4; }
+/* the tagline lands before the site's rain has filled in, so it is solid type rather than a window */
+#ko .ko.tag .lift { background: #f2f7f4; }
+
+.in-scene #scene { opacity: 1; }
+.in-matrix #rain { opacity: 1; }
+.in-matrix #scene { opacity: 0; transition-duration: 0.6s; }
+
+main {
+  position: relative;
+  z-index: 1;
+  box-sizing: border-box;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+main > * { grid-area: 1 / 1; }
+
+.line {
+  margin: 0;
+  font-family: Inter, system-ui, sans-serif;
+  font-style: italic;
+  font-weight: 900;
+  font-size: clamp(1.6rem, 8vw, 5rem);
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+  white-space: nowrap;
+  text-align: center;
+  color: var(--ink);
+  transition: opacity 1.2s ease, transform 1.6s cubic-bezier(0.6, 0, 0.2, 1), color 1.2s ease;
+  pointer-events: none;
+  transform: translateY(-7vh);
+}
+.line .m { font-family: var(--f-code); font-style: normal; font-weight: 500; font-size: 0.8em; letter-spacing: -0.03em; }
+.line .m.tld { color: var(--rain-ink); }
+.line .g { font-family: var(--f-code); font-style: normal; font-weight: 400; font-size: 0.62em; color: var(--rain-ink); }
+.in-scene .line, .in-matrix .line { opacity: 0; transition: opacity 0.4s ease; }
+/* "upon" underlines itself, one letter after another, so it reads as one line drawing */
+.line .u { background: linear-gradient(var(--rain-ink), var(--rain-ink)) no-repeat 0 94% / 0% 0.055em; transition: background-size 0.16s linear; }
+.line .u.on { background-size: 100% 0.055em; }
+/* the second half of the opening, finished by the words in the film */
+.line2 {
+  align-self: center;
+  margin: clamp(4rem, 17vw, 9.5rem) 0 0;
+  font-family: Inter, system-ui, sans-serif;
+  font-style: italic;
+  font-weight: 900;
+  font-size: clamp(1rem, 4.4vw, 2.5rem);
+  letter-spacing: -0.02em;
+  white-space: nowrap;
+  text-align: center;
+  color: var(--ink);
+  opacity: 0;
+  transition: opacity 0.8s ease;
+  pointer-events: none;
+  transform: translateY(-7vh);
+}
+.show-l2 .line2 { opacity: 1; }
+.in-scene .line2, .in-matrix .line2 { opacity: 0; transition: opacity 0.4s ease; }
+
+/* captions sit low, like subtitles */
+.cap {
+  align-self: end;
+  margin: 0 0 clamp(64px, 14vh, 120px);
+  font-family: var(--f-story);
+  font-weight: 300;
+  font-size: clamp(1.05rem, 4.4vw, 1.6rem);
+  color: var(--paper);
+  /* a soft local scrim so the line reads over bright frames (paper, sky) */
+  padding: 0.7em 2.4em;
+  background: radial-gradient(closest-side, rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0));
+  text-shadow: 0 0 2px rgba(0, 0, 0, 0.7), 0 1px 4px rgba(0, 0, 0, 0.7), 0 2px 24px rgba(0, 0, 0, 0.9);
+  white-space: nowrap;
+  text-align: center;
+  opacity: 0;
+  transition: opacity 0.5s ease;
+  pointer-events: none;
+}
+.cap.on { opacity: 1; }
+
+/* the only control on the blank page */
+.enter {
+  position: relative;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  min-height: 48px;
+  padding: 0 22px;
+  font-family: var(--f-code);
+  font-size: 15px;
+  color: var(--ink);
+  background: transparent;
+  border: 1px solid rgba(11, 11, 11, 0.85);
+  border-radius: 3px;
+  cursor: pointer;
+  transition: opacity 0.5s ease, background 0.2s, color 0.2s;
+}
+.enter .k { color: var(--rain-ink); }
+.enter .p { color: var(--muted); }
+.enter::after {
+  content: "";
+  width: 0.55em;
+  height: 1.1em;
+  margin-left: 8px;
+  background: var(--ink);
+  animation: blink 1.1s steps(1) infinite;
+}
+.enter:hover { background: var(--ink); color: var(--page); }
+.enter:hover .k { color: var(--rain); }
+.enter:hover::after { background: var(--rain); }
+.enter:focus-visible, .mail:focus-visible { outline: 2px solid var(--rain-ink); outline-offset: 4px; }
+.telling .enter { opacity: 0; pointer-events: none; }
+@keyframes blink { 50% { opacity: 0; } }
+
+.mail {
+  position: fixed;
+  z-index: 1;
+  left: 50%;
+  bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  transform: translateX(-50%);
+  padding: 8px 10px;
+  font-family: var(--f-code);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  text-decoration: none;
+  transition: opacity 0.6s ease, color 0.2s;
+}
+.mail:hover { color: var(--ink); }
+.telling .mail { opacity: 0; pointer-events: none; }
+.in-matrix .mail { opacity: 0.7; pointer-events: auto; }
+.in-matrix .mail:hover { color: var(--rain-hi); }
+
+/* the wordmark that surfaces with the rain */
+.mark {
+  align-self: start;
+  margin: clamp(36px, 10vh, 110px) 0 0;
+  font-family: var(--f-code);
+  font-weight: 500;
+  font-size: clamp(1.6rem, 6vw, 2.6rem);
+  letter-spacing: -0.03em;
+  white-space: nowrap;
+  color: #f2f7f4;
+  text-shadow: 0 0 24px rgba(70, 179, 134, 0.35);
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity 1.4s ease, transform 1.4s cubic-bezier(0.2, 0.8, 0.2, 1);
+  pointer-events: none;
+}
+.mark span { color: var(--rain); }
+.show-mark .mark { opacity: 1; transform: none; }
+
+/* a modern terminal, floating over the rain */
+.term {
+  position: relative;
+  z-index: 2;
+  box-sizing: border-box;
+  width: min(580px, 100%);
+  border-radius: 12px;
+  overflow: hidden;
+  background: rgba(14, 17, 16, 0.78);
+  -webkit-backdrop-filter: blur(18px) saturate(1.2);
+  backdrop-filter: blur(18px) saturate(1.2);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.6), 0 0 0 0.5px rgba(0, 0, 0, 0.8);
+  color: #cfd6d2;
+  opacity: 0;
+  transform: translateY(14px) scale(0.98);
+  pointer-events: none;
+  transition: opacity 0.7s ease, transform 0.7s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.show-term .term { opacity: 1; transform: none; pointer-events: auto; }
+.term.min { opacity: 0 !important; transform: translateY(40vh) scale(0.1) !important; transition-duration: 0.45s; }
+.term-bar {
+  position: relative;
+  display: flex;
+  align-items: center;
+  height: 38px;
+  padding: 0 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+.lights { display: flex; gap: 8px; }
+.lights button {
+  width: 13px;
+  height: 13px;
+  padding: 0;
+  border-radius: 50%;
+  border: 0.5px solid rgba(0, 0, 0, 0.35);
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  font: 700 9px/1 -apple-system, system-ui, sans-serif;
+  color: transparent;
+}
+.lights:hover button { color: rgba(0, 0, 0, 0.6); }
+.lights .close { background: #ff5f57; }
+.lights .minimize { background: #febc2e; }
+.lights .zoom { background: #28c840; cursor: default; }
+.lights button:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+.term-title {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 12px;
+  color: #8c958f;
+  white-space: nowrap;
+}
+.term-body {
+  margin: 0;
+  padding: 16px 18px 18px;
+  min-height: 11.5em;
+  font-family: var(--f-code);
+  font-size: clamp(10.5px, 2.8vw, 13px);
+  line-height: 1.7;
+  white-space: pre;
+  overflow: hidden;
+}
+.term-body .pr { color: var(--rain); }
+.term-body .cmd { color: #ffffff; }
+.term-body .dim { color: #6f7873; }
+.load-dot {
+  display: inline-block;
+  width: 0.6em;
+  height: 0.6em;
+  margin-right: 0.55em;
+  border-radius: 50%;
+  background: var(--rain);
+  box-shadow: 0 0 10px var(--rain);
+  vertical-align: 0.05em;
+  animation: pulse 1s ease-in-out infinite;
+}
+.caret { animation: blink 1s steps(1) infinite; }
+@keyframes pulse { 50% { opacity: 0.2; } }
+.term-hint {
+  padding: 8px 18px 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  font-size: 11px;
+  color: #7d8681;
+  white-space: nowrap;
+}
+.term-hint b { font-weight: 500; color: #b9c2bd; }
+
+.sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+@media (max-width: 560px) {
+  .term-hint .wide { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition: none !important; animation: none !important; }
+}
+</style>
+</head><body>
+
+<canvas class="layer" id="scene" aria-hidden="true"></canvas>
+<canvas class="layer" id="rain" aria-hidden="true"></canvas>
+<video class="film" id="filmA" muted playsinline preload="auto" aria-hidden="true"></video>
+<video class="film" id="filmB" muted playsinline preload="auto" aria-hidden="true"></video>
+<div id="ko" aria-hidden="true"></div>
+<div id="fx" aria-hidden="true"></div>
+<button type="button" id="snd" aria-pressed="true">sound on</button>
+<audio id="music" preload="auto" src="music/warehouse.mp3"></audio>
+
+
+<main>
+  <h1 class="sr">upon.dev, a media technology and AI consultancy for storytelling. In stealth.</h1>
+  <p class="line" id="line" aria-hidden="true"></p>
+  <p class="line2" aria-hidden="true">stories were told with…</p>
+  <p class="cap" id="cap" aria-live="polite"></p>
+  <p class="mark" aria-hidden="true">upon<span>.dev</span></p>
+  <section class="term" id="term" aria-label="upon.dev readme">
+    <div class="term-bar">
+      <div class="lights">
+        <button type="button" class="close" id="close" title="Close: back to the beginning" aria-label="Close, back to the beginning">×</button>
+        <button type="button" class="minimize" id="min" title="Minimize: back to the beginning" aria-label="Minimize, back to the beginning">−</button>
+        <button type="button" class="zoom" tabindex="-1" aria-hidden="true">+</button>
+      </div>
+      <span class="term-title">upon — zsh</span>
+    </div>
+    <pre class="term-body" id="tty"></pre>
+    <div class="term-hint"><b>Close</b> or <b>minimize</b> to go back to the beginning<span class="wide"> · Esc works too</span></div>
+  </section>
+  <button type="button" class="enter" id="enter"><span class="k">upon</span><span class="p">.</span>enter<span class="p">()</span></button>
+</main>
+<a class="mail" href="mailto:hello@upon.dev">hello@upon.dev</a>
+
+<script>
+(() => {
+  const root = document.documentElement;
+  const reduce = window.matchMedia("(prefers-reduced-motion: reduce)");
+  const sceneCv = document.getElementById("scene");
+  const sx = sceneCv.getContext("2d");
+  const rainCv = document.getElementById("rain");
+  const rx = rainCv.getContext("2d");
+  const lineEl = document.getElementById("line");
+  const line2El = document.querySelector(".line2");
+  const capEl = document.getElementById("cap");
+  const termEl = document.getElementById("term");
+  const tty = document.getElementById("tty");
+  const enter = document.getElementById("enter");
+
+  const clamp01 = (v) => Math.max(0, Math.min(1, v));
+  const ease = (p) => (p < 0.5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2);
+  const lerp = (a, b, p) => a + (b - a) * p;
+  const NOISE = "abcdefghijklmnopqrstuvwxyz{}[]<>/=;:*+#§¶0123456789";
+  const pick = (s) => s[(Math.random() * s.length) | 0];
+  const hash = (a, b) => { const x = Math.sin(a * 127.1 + b * 311.7) * 43758.5453; return x - Math.floor(x); };
+
+  let W = 0, H = 0, DPR = 1;
+
+  /* ------------------------------------------------------------------ */
+  /* The matrix: every stream is a line from a story about stories.      */
+  /* ------------------------------------------------------------------ */
+  const SHELF = [
+    // Lewis Carroll, Alice's Adventures in Wonderland (1865)
+    "Alice was beginning to get very tired of sitting by her sister on the bank",
+    "Curiouser and curiouser!",
+    "We're all mad here.",
+    "Who in the world am I? Ah, that's the great puzzle!",
+    "Begin at the beginning, and go on till you come to the end: then stop.",
+    "Oh dear! Oh dear! I shall be late!",
+    "down, down, down. Would the fall never come to an end?",
+    // The Matrix (1999)
+    "follow the white rabbit.",
+    "knock, knock, Neo.",
+    "wake up, Neo...",
+    "there is no spoon.",
+    "red pill / blue pill",
+    // Ready Player One: three keys, three gates, one egg
+    "the copper key",
+    "the jade key",
+    "the crystal key",
+    "three keys open three secret gates",
+    "an easter egg is hidden in the code",
+    // Older storytellers
+    "in the old days, when wishing still helped",
+    "open, sesame!",
+    "a thousand and one nights",
+    "all children, except one, grow up.",
+    "and they lived happily ever after.",
+    // Code
+    'printf("hello, world\\n");',
+    "while (true) { tell(story); }",
+    'git commit -m "chapter one"',
+    "render(scene); cut_to(next);",
+  ];
+  // one rare gold stream at a time, for whoever is patient enough to watch
+  const EGG = "you found the egg. hello@upon.dev";
+  const css = getComputedStyle(root);
+  const token = (n, f) => css.getPropertyValue(n).trim() || f;
+  const RAIN = token("--rain", "#46b386");
+  const RAIN_HI = token("--rain-hi", "#d4f7e4");
+  const GOLD = token("--gold", "#e3b95c");
+  const NIGHT = "6, 8, 10";
+
+  let fs = 16, cols = 0, drops = [], eggOut = false;
+
+  function makeDrop(spread) {
+    let text = SHELF[(Math.random() * SHELF.length) | 0], egg = false;
+    if (!eggOut && Math.random() < 0.004) { text = EGG; egg = true; eggOut = true; }
+    return {
+      text: text.replace(/ /g, " "), i: 0, egg,
+      y: spread ? -Math.random() * (H / fs) * 1.2 : -Math.random() * 10,
+      speed: 0.3 + Math.random() * 0.6, last: null, lastY: -1,
+    };
+  }
+
+  function sizeRain() {
+    rainCv.width = W * DPR;
+    rainCv.height = H * DPR;
+    rx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    fs = W < 560 ? 13 : 16;
+    rx.font = `500 ${fs}px "IBM Plex Mono", ui-monospace, Menlo, monospace`;
+    rx.textBaseline = "top";
+    const n = Math.ceil(W / fs);
+    while (drops.length < n) drops.push(makeDrop(true));
+    drops.length = n;
+    cols = n;
+    rx.fillStyle = `rgb(${NIGHT})`;
+    rx.fillRect(0, 0, W, H);
+  }
+
+  function rainStep() {
+    rx.fillStyle = `rgba(${NIGHT}, 0.075)`;
+    rx.fillRect(0, 0, W, H);
+    for (let c = 0; c < cols; c++) {
+      const d = drops[c];
+      const row = Math.floor(d.y);
+      if (row !== d.lastY) {
+        const x = c * fs;
+        if (d.last !== null && d.lastY >= 0) {
+          rx.fillStyle = `rgb(${NIGHT})`;
+          rx.fillRect(x, d.lastY * fs, fs, fs);
+          rx.fillStyle = d.egg ? GOLD : RAIN;
+          rx.fillText(d.last, x, d.lastY * fs);
+        }
+        let ch = d.i < d.text.length ? d.text[d.i] : null;
+        d.i++;
+        if (ch !== null && !d.egg && Math.random() < 0.02) ch = pick(NOISE);
+        if (ch !== null && row >= 0) {
+          rx.fillStyle = d.egg ? "#fff3cf" : RAIN_HI;
+          rx.fillText(ch, x, row * fs);
+        }
+        d.last = ch;
+        d.lastY = row;
+      }
+      d.y += d.speed;
+      if (d.i > d.text.length + 6 || d.y * fs > H + fs) {
+        if (d.egg) eggOut = false;
+        drops[c] = makeDrop(false);
+      }
+    }
+  }
+
+  function rainStill() {
+    rx.fillStyle = `rgb(${NIGHT})`;
+    rx.fillRect(0, 0, W, H);
+    rx.globalAlpha = 0.3;
+    rx.fillStyle = RAIN;
+    for (let c = 0; c < cols; c++) {
+      if (Math.random() < 0.4) continue;
+      const text = SHELF[(Math.random() * SHELF.length) | 0];
+      const start = ((Math.random() * H) / fs) | 0;
+      for (let k = 0; k < text.length; k++) rx.fillText(text[k], c * fs, (start + k) * fs);
+    }
+    rx.globalAlpha = 1;
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* The scenes: four photographed plates, moved by code. Each gets a    */
+  /* slow push-in, its own living light, and film grain over the top.    */
+  /* ------------------------------------------------------------------ */
+  const PLATES = {};
+  ["cave", "press", "room", "phone"].forEach((n) => ["w", "t"].forEach((v) => {
+    const img = new Image();
+    img.decoding = "async";
+    img.src = `img/${n}-${v}.jpg`;
+    PLATES[`${n}-${v}`] = img;
+  }));
+  // where things sit in each plate, as fractions of the image
+  const SPOTS = {
+    w: { cave: [0.5, 0.55], words: [0.5, 0.43], press: [0.51, 0.66], lamp: [0.24, 0.42], room: [0.5, 0.33], tv: [0.5, 0.33], phone: [0.4975, 0.485], screen: [0.3975, 0.1, 0.5975, 0.87] },
+    t: { cave: [0.5, 0.5], words: [0.5, 0.47], press: [0.48, 0.66], lamp: [0.11, 0.55], room: [0.5, 0.38], tv: [0.5, 0.37], phone: [0.504, 0.468], screen: [0.318, 0.23, 0.69, 0.705] },
+  };
+  let grain = null;
+  const variant = () => (W / H < 0.9 ? "t" : "w");
+
+  function makeGrain() {
+    const g = document.createElement("canvas");
+    g.width = g.height = 160;
+    const c = g.getContext("2d");
+    const img = c.createImageData(160, 160);
+    for (let i = 0; i < img.data.length; i += 4) {
+      const v = (Math.random() * 255) | 0;
+      img.data[i] = img.data[i + 1] = img.data[i + 2] = v;
+      img.data[i + 3] = 255;
+    }
+    c.putImageData(img, 0, 0);
+    return g;
+  }
+
+  function sizeScene() {
+    sceneCv.width = W * DPR;
+    sceneCv.height = H * DPR;
+    sx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    if (!grain) grain = makeGrain();
+  }
+
+  function finish(vignette = 0.6) {
+    const v = sx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.3, W / 2, H / 2, Math.max(W, H) * 0.75);
+    v.addColorStop(0, "rgba(0,0,0,0)");
+    v.addColorStop(1, `rgba(0,0,0,${vignette})`);
+    sx.fillStyle = v;
+    sx.fillRect(0, 0, W, H);
+    sx.save();
+    sx.globalAlpha = 0.06;
+    sx.globalCompositeOperation = "overlay";
+    const ox = (Math.random() * 160) | 0, oy = (Math.random() * 160) | 0;
+    sx.translate(-ox, -oy);
+    sx.fillStyle = sx.createPattern(grain, "repeat");
+    sx.fillRect(0, 0, W + 160, H + 160);
+    sx.restore();
+  }
+
+  // Draw a plate to cover the screen, pushed in by k around a focal point. Returns a mapper
+  // from image fractions to screen coordinates, so the light and words stay pinned to the picture.
+  function plate(name, k, focus) {
+    const img = PLATES[`${name}-${variant()}`];
+    if (!img.complete || !img.naturalWidth) {
+      sx.fillStyle = "#000";
+      sx.fillRect(0, 0, W, H);
+      return null;
+    }
+    const iw = img.naturalWidth, ih = img.naturalHeight;
+    const s = Math.max(W / iw, H / ih);
+    const ox = (W - iw * s) / 2, oy = (H - ih * s) / 2;
+    const fx = ox + focus[0] * iw * s, fy = oy + focus[1] * ih * s;
+    // keep the focal point drifting toward the centre as we push, never revealing an edge
+    const cx = lerp(fx, W / 2, Math.min(1, k - 1) * 2), cy = lerp(fy, H / 2, Math.min(1, k - 1) * 2);
+    const map = (u, v) => [cx + (ox + u * iw * s - fx) * k, cy + (oy + v * ih * s - fy) * k];
+    const [x0, y0] = map(0, 0), [x1, y1] = map(1, 1);
+    // clamp so the image always covers the screen
+    let dx = 0, dy = 0;
+    if (x0 > 0) dx = -x0; else if (x1 < W) dx = W - x1;
+    if (y0 > 0) dy = -y0; else if (y1 < H) dy = H - y1;
+    sx.drawImage(img, x0 + dx, y0 + dy, x1 - x0, y1 - y0);
+    return { map: (u, v) => { const [a, b] = map(u, v); return [a + dx, b + dy]; }, scale: s * k };
+  }
+
+  function light(x, y, r, color) {
+    const g = sx.createRadialGradient(x, y, 0, x, y, r);
+    g.addColorStop(0, color);
+    g.addColorStop(1, "rgba(0,0,0,0)");
+    sx.save();
+    sx.globalCompositeOperation = "screen";
+    sx.fillStyle = g;
+    sx.fillRect(x - r, y - r, r * 2, r * 2);
+    sx.restore();
+  }
+
+  // Voices: the fire breathes on the wall, the shadows shiver with it, and the wall learns to write.
+  function drawCave(p, t) {
+    const spot = SPOTS[variant()];
+    const flick = 0.5 + 0.5 * (0.55 * Math.sin(t * 9.3) * Math.sin(t * 5.1) + 0.3 * Math.sin(t * 17.7) + 0.15 * Math.sin(t * 31));
+    const shake = Math.sin(t * 13) * Math.sin(t * 7) * 0.003;
+    const P = plate("cave", 1.02 + p * 0.1 + shake, spot.cave);
+    if (!P) return;
+    sx.fillStyle = `rgba(0,0,0,${0.06 + (1 - flick) * 0.22})`;
+    sx.fillRect(0, 0, W, H);
+    const [bx, by] = P.map(0.5, 1.0);
+    light(bx, by, Math.max(W, H) * 0.75, `rgba(255,140,50,${0.1 + flick * 0.16})`);
+    // the marks become words
+    const write = clamp01((p - 0.5) / 0.3);
+    if (write > 0) {
+      const [wx, wy] = P.map(spot.words[0], spot.words[1]);
+      const size = Math.min(W * 0.075, 60);
+      sx.save();
+      sx.font = `italic 300 ${size}px "Newsreader", Georgia, serif`;
+      sx.textAlign = "center";
+      sx.textBaseline = "middle";
+      const text = "once upon a time";
+      const n = Math.ceil(text.length * write);
+      sx.globalCompositeOperation = "multiply";
+      sx.fillStyle = "rgba(150,52,22,0.9)";
+      sx.globalAlpha = 0.85;
+      // reveal letter by letter, centred on the full line
+      const full = sx.measureText(text).width;
+      sx.textAlign = "left";
+      sx.fillText(text.slice(0, n), wx - full / 2, wy);
+      sx.restore();
+    }
+    // embers lifting from the fire
+    for (let i = 0; i < 24; i++) {
+      const life = (t * 0.32 + hash(i, 1)) % 1;
+      const ex = W / 2 + (hash(i, 2) - 0.5) * W * 0.6 + Math.sin(t * 2 + i) * 16;
+      const ey = H - life * H * 0.6;
+      sx.fillStyle = `rgba(255,${150 + hash(i, 3) * 80},80,${(1 - life) * 0.7})`;
+      sx.fillRect(ex, ey, 2, 2);
+    }
+    finish(0.55);
+  }
+
+  // Paper: lamplight wavers, the camera leans in toward the freshly inked sheet.
+  function drawPress(p, t) {
+    const spot = SPOTS[variant()];
+    const P = plate("press", 1.03 + p * 0.14, spot.press);
+    if (!P) return;
+    const flick = 0.85 + 0.15 * Math.sin(t * 8.1) * Math.sin(t * 3.3);
+    const [lx, ly] = P.map(spot.lamp[0], spot.lamp[1]);
+    light(lx, ly, Math.max(W, H) * 0.35, `rgba(255,170,80,${0.12 * flick})`);
+    // dust in the lamplight
+    for (let i = 0; i < 40; i++) {
+      const u = (hash(i, 5) + t * 0.01 * (hash(i, 6) - 0.5)) % 1;
+      const v = (hash(i, 7) + t * 0.012) % 1;
+      const x = lx + (u - 0.5) * W * 0.6, y = ly + (v - 0.5) * H * 0.6;
+      sx.fillStyle = `rgba(255,210,150,${0.25 * (0.5 + 0.5 * Math.sin(t * 2 + i))})`;
+      sx.fillRect(x, y, 1.5, 1.5);
+    }
+    finish(0.55);
+  }
+
+  // Screens: the television's light rolls across the room as its picture changes.
+  function drawRoom(p, t) {
+    const spot = SPOTS[variant()];
+    const P = plate("room", 1.02 + p * 0.12, spot.room);
+    if (!P) return;
+    const flick = 0.5 + 0.5 * Math.sin(t * 1.7) * Math.sin(t * 0.6 + 1) ;
+    const [tx, ty] = P.map(spot.tv[0], spot.tv[1]);
+    light(tx, ty, Math.max(W, H) * 0.6, `rgba(90,140,255,${0.06 + flick * 0.1})`);
+    sx.fillStyle = `rgba(0,0,0,${0.12 * (1 - flick)})`;
+    sx.fillRect(0, 0, W, H);
+    finish(0.55);
+  }
+
+  // The phone: its screen comes alive with the same rain, then the camera falls into it.
+  function drawPhone(p, t, zoom) {
+    const spot = SPOTS[variant()];
+    const img = PLATES[`phone-${variant()}`];
+    if (!img.complete || !img.naturalWidth) { sx.fillStyle = "#000"; sx.fillRect(0, 0, W, H); return; }
+    const base = 1.0 + p * 0.06;
+    // work out how far to push so the screen fills the viewport
+    const iw = img.naturalWidth, ih = img.naturalHeight;
+    const s = Math.max(W / iw, H / ih);
+    const sw = (spot.screen[2] - spot.screen[0]) * iw * s, sh = (spot.screen[3] - spot.screen[1]) * ih * s;
+    const target = Math.max(W / sw, H / sh) * 1.04;
+    const k = zoom > 0 ? lerp(base, target, ease(zoom)) : base;
+    const focus = [(spot.screen[0] + spot.screen[2]) / 2, (spot.screen[1] + spot.screen[3]) / 2];
+    // centre the screen as we zoom (plate() eases the focus toward the middle)
+    const P = plate("phone", k, focus);
+    if (!P) return;
+    const [x0, y0] = P.map(spot.screen[0], spot.screen[1]);
+    const [x1, y1] = P.map(spot.screen[2], spot.screen[3]);
+    const live = clamp01(p * 1.6 + zoom);
+    sx.save();
+    roundRect(x0, y0, x1 - x0, y1 - y0, (x1 - x0) * 0.09);
+    sx.clip();
+    // the photographed screen hands over to the live rain as we fall in
+    sx.globalAlpha = ease(zoom);
+    sx.fillStyle = `rgb(${NIGHT})`;
+    sx.fillRect(x0, y0, x1 - x0, y1 - y0);
+    sx.globalAlpha = live;
+    sx.globalCompositeOperation = zoom > 0.5 ? "source-over" : "screen";
+    miniRain(x0, y0, x1 - x0, y1 - y0, t);
+    sx.restore();
+    // green spill on the hand
+    light((x0 + x1) / 2, (y0 + y1) / 2, (y1 - y0) * 0.9, `rgba(70,179,134,${0.1 * live})`);
+    finish(0.55 * (1 - zoom));
+  }
+
+  function roundRect(x, y, w, h, r) {
+    sx.beginPath();
+    sx.moveTo(x + r, y);
+    sx.arcTo(x + w, y, x + w, y + h, r);
+    sx.arcTo(x + w, y + h, x, y + h, r);
+    sx.arcTo(x, y + h, x, y, r);
+    sx.arcTo(x, y, x + w, y, r);
+    sx.closePath();
+  }
+  // the phone shows the same rain, scaled so it lines up with the real one after the zoom
+  function miniRain(x, y, w, h, t) {
+    const k = Math.max(w / W, 0.08);
+    const f = fs * k;
+    const colsN = Math.ceil(w / f), rowsN = Math.ceil(h / f);
+    sx.font = `500 ${f}px "IBM Plex Mono", ui-monospace, monospace`;
+    sx.textBaseline = "top";
+    for (let c = 0; c < colsN; c++) {
+      const sp = 6 + hash(c, 9) * 10;
+      const head = ((t * sp + hash(c, 4) * rowsN * 2) % (rowsN + 16)) - 4;
+      const text = SHELF[(hash(c, 7) * SHELF.length) | 0];
+      for (let j = 0; j < 14; j++) {
+        const row = Math.floor(head) - j;
+        if (row < 0 || row > rowsN) continue;
+        const ch = text[(row + c) % text.length];
+        sx.fillStyle = j === 0 ? RAIN_HI : `rgba(70,179,134,${1 - j / 14})`;
+        sx.fillText(ch, x + c * f, y + row * f);
+      }
+    }
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* The timeline                                                        */
+  /* ------------------------------------------------------------------ */
+  const SCENES = [
+    { id: "cave", dur: 6.4, cap: "Stories were carried by voices," },
+    { id: "press", dur: 5.2, cap: "then paper," },
+    { id: "room", dur: 4.2, cap: "then screens." },
+    { id: "phone", dur: 3.2, cap: "then screens." },
+  ];
+  const XFADE = 1.3, ZOOM = 2.4;
+  let mode = "idle", sceneT0 = 0, raf = 0, prev = 0, acc = 0, rainOn = false, capShown = "";
+  const timers = [];
+  // experiments run the whole telling faster; MODE is set by the buttons below
+  const MODES = {
+    original: { rate: 1, tempo: 1 },
+    // softer: slower pulse, a pale veil rather than white, flashes that bloom and fade instead of hard frames
+    strobe: { rate: 1.3, tempo: 0.75, strobe: 190, steps: 2, veils: ["rgba(6,8,10,.78)", "rgba(250,250,247,.55)"], flash: ["#fff"], fxo: 0.45, fxfade: "0.25s", noblink: true },
+    // Enter the Void, toned down: colour swaps at ~6 a second, a small breathing jitter, half-strength flashes
+    // void is driven by its track: colours change on every kick, words hold 3 beats, and the white page
+    // drops into a neon strobe on the first drum hit, PRE_BEATS before the film
+    void: { rate: 1.6, tempo: 0.6, strobe: 160, steps: 1, hold: 3, neon: true, track: "warehouse2", drop: true, jitter: true, fxo: 0.6, fxfade: "0.12s",
+            flash: ["#ff1e56", "#00f0ff", "#fff200", "#ff00e6", "#ffffff"] },
+  };
+  let MODE = MODES.original;
+  const later = (fn, ms) => timers.push(setTimeout(fn, ms * MODE.tempo));
+
+  function drawScene(id, p, t) {
+    if (id === "cave") drawCave(p, t);
+    else if (id === "press") drawPress(p, t);
+    else if (id === "room") drawRoom(p, t);
+    else drawPhone(p, t, 0);
+  }
+
+  function setCap(text) {
+    if (text === capShown) return;
+    capShown = text;
+    capEl.classList.remove("on");
+    later(() => { capEl.textContent = text; if (text) capEl.classList.add("on"); }, 380);
+  }
+
+  function frame(now) {
+    raf = requestAnimationFrame(frame);
+    const dt = now - prev;
+    prev = now;
+    if (rainOn) {
+      acc += dt;
+      if (acc > 1000) acc = 0;
+      while (acc >= 33) { rainStep(); acc -= 33; }
+    }
+    if (mode !== "scenes") return;
+    const t = (now - sceneT0) / 1000;
+    let start = 0;
+    for (let i = 0; i < SCENES.length; i++) {
+      const s = SCENES[i];
+      const end = start + s.dur;
+      const last = i === SCENES.length - 1;
+      if (t < end || last) {
+        const p = clamp01((t - start) / s.dur);
+        setCap(s.cap);
+        if (last && t > end) {
+          // fall through the phone screen into the matrix
+          const z = clamp01((t - end) / ZOOM);
+          drawPhone(1, t, z);
+          if (z >= 1) toMatrix();
+        } else {
+          drawScene(s.id, p, t);
+          const next = SCENES[i + 1];
+          const into = t - (end - XFADE);
+          if (next && into > 0) {
+            sx.save();
+            sx.globalAlpha = ease(clamp01(into / XFADE));
+            drawScene(next.id, 0, t);
+            sx.restore();
+          }
+        }
+        break;
+      }
+      start = end;
+    }
+  }
+
+
+  /* ------------------------------------------------------------------ */
+  /* The film: four generated shots, each ending on the frame the next   */
+  /* begins with, played back to back on two alternating video players.  */
+  /* If video can't play, the photo plates above stand in.               */
+  /* ------------------------------------------------------------------ */
+  // one continuous film, cut in Weavy; its last two seconds are flat --night
+  const CLIPS = [
+    { src: "vid/film", caps: [] },
+  ];
+  const HAS_TALL = false; // flip on once a 9:16 cut exists as vid/film-t.*
+  const players = [document.getElementById("filmA"), document.getElementById("filmB")];
+  let clip = -1, active = 0;
+  // H.264 where the browser has it (Safari, Chrome, Edge), VP9 everywhere else
+  const EXT = document.createElement("video").canPlayType('video/mp4; codecs="avc1.640028"') ? "mp4" : "webm";
+  const clipSrc = (i) => `${CLIPS[i].src}-${HAS_TALL ? variant() : "w"}.${EXT}`;
+  function load(el, i) { el.dataset.clip = i; el.src = clipSrc(i); el.load(); }
+
+  function playClip(i) {
+    clip = i;
+    const el = players[active];
+    const other = players[1 - active];
+    el.style.zIndex = 1; other.style.zIndex = 0;
+    el.play().then(() => {
+      el.classList.add("on");
+      // hold the previous shot underneath for a beat so the cut never flashes
+      setTimeout(() => { if (other !== players[active]) other.classList.remove("on"); }, 120);
+      if (i + 1 < CLIPS.length) load(other, i + 1);
+    }, fallback);
+  }
+
+  players.forEach((el, n) => {
+    el.addEventListener("timeupdate", () => {
+      if (mode !== "film" || n !== active || !el.duration) return;
+      const p = el.currentTime / el.duration;
+      let cap = null;
+      for (const [at, text] of CLIPS[clip].caps) if (p >= at) cap = text;
+      if (cap) setCap(cap);
+    });
+    el.addEventListener("ended", () => {
+      if (mode !== "film" || n !== active) return;
+      if (clip + 1 >= CLIPS.length) { toMatrix(); return; }
+      active = 1 - active;
+      playClip(clip + 1);
+    });
+    el.addEventListener("error", () => { if (mode === "film") fallback(); });
+  });
+
+  /* ------------------------------------------------------------------ */
+  /* Knockout words. Times are seconds into the film; retime to the cut. */
+  /* All words share one size (the longest fills 92% of the screen), so   */
+  /* each swap is a hard cut that never jumps.                           */
+  /* ------------------------------------------------------------------ */
+  // Every word holds for the same KO_HOLD seconds (fades included); only the start moves, to sit on its scene.
+  const KO_HOLD = 1.5;
+  const WORDS = [
+    ["VOICES", 0.9], ["INK", 4.0], ["RADIO", 6.8], ["FILM", 10.0],
+    ["PIXELS", 14.0], ["Now, they're told with", 17.3], ["CODE", 18.95],
+  ].map(([w, t]) => [w, t, t + KO_HOLD]);
+  const KO_FILL = 0.92, KO_TAG = 0.42, KO_Y = 0.42; // KO_Y: words sit a little above centre
+  const KO_TARGET = 0.42, KO_MAX = 4; // auto-exposure: mean brightness the letters aim for, and the most they may be pushed
+  const koEl = document.getElementById("ko");
+  let koLayers = [], koRects = [], koOn = -1, koRaf = 0, koN = 0, koLift = 2, koFloor = [255, 236, 210, 0.06];
+  const probe = document.createElement("canvas"), px = probe.getContext("2d", { willReadFrequently: true });
+  function buildKo() {
+    const dpr = Math.min(window.devicePixelRatio || 1, 2), w = window.innerWidth, h = window.innerHeight;
+    const c = document.createElement("canvas"), x = c.getContext("2d");
+    c.width = w * dpr; c.height = h * dpr;
+    x.font = "900 100px Inter";
+    const caps = WORDS.map(([t]) => t).filter((t) => t === t.toUpperCase());
+    const size = (100 * w * KO_FILL) / Math.max(...caps.map((t) => x.measureText(t).width));
+    const mask = (word, fs, out) => {
+      x.setTransform(1, 0, 0, 1, 0, 0);
+      x.globalCompositeOperation = "source-over";
+      x.clearRect(0, 0, c.width, c.height);
+      x.fillStyle = "#fff";
+      if (out) { x.fillRect(0, 0, c.width, c.height); x.globalCompositeOperation = "destination-out"; }
+      x.setTransform(dpr, 0, 0, dpr, (w / 2) * dpr, h * KO_Y * dpr);
+      x.font = `900 ${fs}px Inter`; x.textAlign = "center"; x.textBaseline = "alphabetic";
+      x.fillText(word, 0, x.measureText("H").actualBoundingBoxAscent / 2);
+      return `url(${c.toDataURL()})`;
+    };
+    koEl.textContent = "";
+    koRects = [];
+    koLayers = WORDS.map(([word]) => {
+      // mixed-case lines are spoken, not shown: smaller, and never wider than the screen allows
+      x.font = `900 ${size * KO_TAG}px Inter`;
+      const fs = word === word.toUpperCase() ? size : Math.min(size * KO_TAG, (size * KO_TAG * w * 0.82) / x.measureText(word).width);
+      x.setTransform(1, 0, 0, 1, 0, 0); x.font = `900 ${fs}px Inter`;
+      const tw = x.measureText(word).width, cap = x.measureText("H").actualBoundingBoxAscent;
+      koRects.push([(w - tw) / 2 / w, (w + tw) / 2 / w, KO_Y - cap / 2 / h, KO_Y + cap / 2 / h]);
+      const el = document.createElement("div"); el.className = word === word.toUpperCase() ? "ko" : "ko tag";
+      [["dim", true], ["lift", false]].forEach(([cls, out]) => {
+        const d = document.createElement("div"); d.className = cls;
+        d.style.webkitMaskImage = d.style.maskImage = mask(word, fs, out);
+        el.appendChild(d);
+      });
+      koEl.appendChild(el);
+      return el;
+    });
+    koOn = -1;
+  }
+  function koShow(i) {
+    if (i === koOn) return;
+    koOn = i;
+    koLayers.forEach((el, j) => el.classList.toggle("on", j === i));
+  }
+  // How bright is the film behind the word? Draw the frame small, as the screen crops it, and average the word's box.
+  function expose(v, i) {
+    if (!v.videoWidth) return;
+    const w = window.innerWidth, h = window.innerHeight, pw = 96, ph = Math.max(8, Math.round((96 * h) / w));
+    if (probe.width !== pw || probe.height !== ph) { probe.width = pw; probe.height = ph; }
+    const k = Math.max(w / v.videoWidth, h / v.videoHeight), sw = w / k, sh = h / k;
+    try {
+      px.drawImage(v, (v.videoWidth - sw) / 2, (v.videoHeight - sh) / 2, sw, sh, 0, 0, pw, ph);
+      const [x0, x1, y0, y1] = koRects[i];
+      const d = px.getImageData(Math.floor(x0 * pw), Math.floor(y0 * ph), Math.max(1, Math.ceil((x1 - x0) * pw)), Math.max(1, Math.ceil((y1 - y0) * ph))).data;
+      let r = 0, g = 0, b = 0;
+      for (let j = 0; j < d.length; j += 4) { r += d[j]; g += d[j + 1]; b += d[j + 2]; }
+      const n = d.length / 4; r /= n; g /= n; b /= n;
+      const mean = Math.max((0.2126 * r + 0.7152 * g + 0.0722 * b) / 255, 0.01);
+      const want = Math.min(KO_MAX, Math.max(1, KO_TARGET / mean));
+      // the floor is the scene's average colour pushed up to mid-grey, laid in more the darker the shot is
+      const up = 150 / Math.max(r, g, b, 1), alpha = Math.min(0.32, Math.max(0.06, (KO_TARGET - mean) * 1.1));
+      const floor = [r * up, g * up, b * up, alpha];
+      // jump on a new word, ease within one so the letters never flicker
+      const ease = koN === 1 ? 1 : 0.2;
+      koLift += (want - koLift) * ease;
+      koFloor = koFloor.map((v, j) => v + (floor[j] - v) * ease);
+      koEl.style.setProperty("--lift", koLift.toFixed(2));
+      koEl.style.setProperty("--floor", `rgba(${koFloor.slice(0, 3).map(Math.round).join(",")},${koFloor[3].toFixed(3)})`);
+    } catch (e) { koEl.style.setProperty("--lift", 2.5); }
+  }
+  // checked every frame rather than on timeupdate, which only fires a few times a second
+  function koTick() {
+    koRaf = 0;
+    const beatMode = MODE.steps && musicOn();
+    // a beat-held word may finish its beats after the film ends
+    if (mode !== "film" && !(beatMode && mode === "matrix" && koOn >= 0)) { koShow(-1); return; }
+    const v = players[active], t = mode === "film" ? v.currentTime : 1e9;
+    let i = WORDS.findIndex(([, a, b]) => t >= a && t < b), beat = null;
+    if (MODE.steps && musicOn()) ({ i, beat } = beatWord(t));
+    koN = i === koOn ? koN + 1 : 1;
+    if (i >= 0 && mode === "film" && (koN === 1 || koN % 3 === 0)) expose(v, i);
+    koShow(i);
+    if (MODE !== MODES.original) fxTick(v, t, i, beat);
+    koRaf = requestAnimationFrame(koTick);
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Experiments: speed, flash frames on every cut, strobing words.      */
+  /* ------------------------------------------------------------------ */
+  const CUTS = [2.9, 3.5, 6.0, 6.4, 8.5, 9.0, 12.8, 16.0, 18.8]; // seconds into the film where the shot turns
+  const fxEl = document.getElementById("fx");
+  let fxFrames = 0, fxN = 0, fxLast = 0, fxFired = new Set(), fxWord = -1;
+  function flash(frames) {
+    const f = MODE.flash;
+    fxEl.style.background = f[fxN++ % f.length];
+    fxEl.classList.add("on");
+    fxFrames = frames;
+  }
+  function punch(v) {
+    v.classList.add("punch");
+    requestAnimationFrame(() => requestAnimationFrame(() => v.classList.remove("punch")));
+  }
+  // Every big word gets the identical treatment: one flash as it lands, then the same strobe sequence,
+  // counted in film time from that word's own start, so each segment is the same length and pattern.
+  // The spoken line ("Now, they're told with") never strobes.
+  function fxTick(v, t, i, beat) {
+    if (v.playbackRate !== MODE.rate) v.playbackRate = MODE.rate;
+    if (fxFrames > 0 && --fxFrames === 0) fxEl.classList.remove("on");
+    const layer = koLayers[i], big = layer && !layer.classList.contains("tag");
+    if (i >= 0 && i !== fxWord) {
+      fxWord = i;
+      if (big) { fxN = i; flash(1); }
+    }
+    if (i < 0) fxWord = -1;
+    if (!big) { koEl.classList.remove("solid", "jit"); koEl.style.removeProperty("--veil"); return; }
+    // with music, the strobe steps on fractions of the beat; without it, on film time
+    const step = (MODE.strobe / 1000) * MODE.rate;
+    const ph = beat !== null ? Math.floor(beat * MODE.steps) : Math.floor((t - WORDS[i][1]) / step);
+    if (MODE.neon) {
+      const c = MODE.flash, n = c.length - 1, a = c[(ph + i) % n], b = c[(ph + i + 2) % n];
+      koEl.classList.add("solid");
+      koEl.style.setProperty("--veil", a + "cc"); // the neon lets a little of the film breathe through
+      koEl.style.setProperty("--type", ph % 3 === 0 ? "#000" : b);
+      layer.classList.toggle("off", ph % 9 === 8);
+    } else {
+      const vs = MODE.veils;
+      koEl.style.setProperty("--veil", vs[ph % vs.length]);
+      layer.classList.toggle("off", !MODE.noblink && ph % 4 === 3);
+    }
+    if (MODE.jitter) koEl.classList.toggle("jit", ph % 2 === 1);
+  }
+  function fxReset() {
+    bStart = []; bEnd = 0;
+    fxFrames = 0; fxN = 0; fxLast = 0; fxWord = -1; fxFired = new Set();
+    fxEl.classList.remove("on");
+    koEl.classList.remove("solid", "jit");
+    koEl.style.removeProperty("--veil");
+    koLayers.forEach((l) => l.classList.remove("off"));
+    players.forEach((p) => { p.playbackRate = MODE.rate; });
+    koEl.style.setProperty("--fade", MODE === MODES.original ? "0.35s" : MODE.noblink ? "0.18s" : "0s");
+    fxEl.style.setProperty("--fxo", MODE.fxo || 1);
+    fxEl.style.setProperty("--fxfade", MODE.fxfade || "0s");
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Music. It fades in on enter and out under the terminal. In the      */
+  /* experiments, each word waits for the next beat and holds HOLD_BEATS. */
+  /* ------------------------------------------------------------------ */
+  // each track's tempo and first beat, measured from the file
+  const TRACKS = {
+    warehouse: { bpm: 133.7, first: 0.43 },
+    warehouse2: { bpm: 139.55, first: 0.19, drop: 7.069 }, // drop = first full drum hit; bars 16-32 repeat once
+  };
+  const HOLD_BEATS = 2, PRE_BEATS = 4, DROP_LEAD = 1.2; // DROP_LEAD: seconds after the second line before the drop
+  let TRACK = "warehouse";
+  const BEAT = () => 60 / TRACKS[TRACK].bpm;
+  const music = document.getElementById("music"), sndEl = document.getElementById("snd");
+  let actx = null, gain = null, musicTok = 0, soundOn = true, bStart = [], bEnd = 0;
+  try { soundOn = localStorage.getItem("upon-sound") !== "off"; } catch (e) {}
+  const musicOn = () => soundOn && actx && !music.paused;
+  const beatNow = () => (music.currentTime - TRACKS[TRACK].first) / BEAT();
+  function beatWord(t) {
+    const b = beatNow();
+    WORDS.forEach(([, a], k) => {
+      if (bStart[k] === undefined && t >= a) { bStart[k] = Math.max(Math.ceil(b), bEnd); bEnd = bStart[k] + holdOf(k); }
+    });
+    const k = bStart.findIndex((s0, j) => s0 !== undefined && b >= s0 && b < s0 + holdOf(j));
+    return { i: k, beat: k >= 0 ? b - bStart[k] : null };
+  }
+  const holdOf = (k) => (WORDS[k][0] === WORDS[k][0].toUpperCase() ? MODE.hold || HOLD_BEATS : HOLD_BEATS);
+  function ramp(to, sec) {
+    if (!gain) return;
+    const now = actx.currentTime;
+    gain.gain.cancelScheduledValues(now);
+    gain.gain.setValueAtTime(gain.gain.value, now);
+    gain.gain.linearRampToValueAtTime(to, now + sec);
+  }
+  // Web Audio for the fades, because iOS ignores element volume; created on the first click
+  function musicStart(at = 0) {
+    if (!soundOn) return;
+    try {
+      if (!actx) {
+        actx = new (window.AudioContext || window.webkitAudioContext)();
+        gain = actx.createGain(); gain.gain.value = 0;
+        actx.createMediaElementSource(music).connect(gain).connect(actx.destination);
+      }
+      actx.resume();
+      const tok = ++musicTok;
+      const want = MODE.track || "warehouse";
+      if (want !== TRACK) { TRACK = want; music.src = `music/${want}.mp3`; }
+      music.currentTime = Math.max(0, at);
+      gain.gain.setValueAtTime(0, actx.currentTime);
+      music.play().then(() => { if (tok === musicTok) ramp(1, 0.8); }, () => {});
+    } catch (e) {}
+  }
+  function musicStop(sec) {
+    const tok = ++musicTok;
+    ramp(0, sec);
+    setTimeout(() => { if (tok === musicTok) music.pause(); }, sec * 1000 + 50);
+  }
+  function setSound(on) {
+    soundOn = on;
+    sndEl.textContent = on ? "sound on" : "sound off";
+    sndEl.setAttribute("aria-pressed", on);
+    try { localStorage.setItem("upon-sound", on ? "on" : "off"); } catch (e) {}
+    if (!on) musicStop(0.3);
+    else if (root.classList.contains("telling") && !root.classList.contains("show-term")) {
+      // turned back on mid-telling: pick the track up where the visuals are
+      if (!actx) musicStart(); else { actx.resume(); music.play().then(() => ramp(1, 0.4), () => {}); }
+    }
+  }
+  sndEl.addEventListener("click", () => setSound(!soundOn));
+  setSound(soundOn);
+
+  function startFilm() {
+    fxReset();
+    if (!koRaf) koRaf = requestAnimationFrame(koTick);
+    mode = "film";
+    // switch the ground under the film now, so nothing changes when it ends
+    document.body.classList.add("matrix");
+    active = 0;
+    if (players[0].dataset.clip !== "0" || !players[0].src.endsWith(clipSrc(0))) load(players[0], 0);
+    players[0].currentTime = 0;
+    playClip(0);
+  }
+
+  function fallback() {
+    if (mode !== "film") return;
+    players.forEach((el) => { el.pause(); el.classList.remove("on"); });
+    toMatrix();
+  }
+
+  function stopFilm() {
+    players.forEach((el) => { el.pause(); el.classList.remove("on"); });
+    clip = -1;
+    active = 0;
+    load(players[0], 0);
+  }
+
+  function toMatrix() {
+    if (mode === "matrix") return;
+    mode = "matrix";
+    root.classList.add("in-matrix");
+    root.classList.remove("in-scene");
+    document.body.classList.add("matrix");
+    if (!(MODE.steps && musicOn())) koShow(-1);
+    later(() => root.classList.add("show-mark"), 1200);
+    later(() => { root.classList.add("show-term"); typeReadme(); }, 2800);
+    later(() => musicStop(2.5), 2400);
+  }
+
+  // the readme types itself out in the terminal, then settles on a loader
+  const README = [
+    ["~/upon ❯ ", "cat README.md"],
+    ["", "upon.dev is a media technology and AI"],
+    ["", "consultancy building storytelling"],
+    ["", "infrastructure for studios, publishers"],
+    ["", "and creators."],
+    ["", ""],
+    ["~/upon ❯ ", "./chapter-one"],
+  ];
+  const TOTAL = README.reduce((n, [a, b]) => n + a.length + b.length, 0);
+  const LOADING = '<span class="load-dot"></span><span class="cmd">loading</span><span class="dim"> · in stealth</span><span class="caret">_</span>';
+  function readme(n) {
+    let html = "";
+    for (const [pr, txt] of README) {
+      if (n <= 0) break;
+      const full = pr + txt, shown = full.slice(0, n);
+      n -= full.length;
+      const a = shown.slice(0, pr.length), b = shown.slice(pr.length);
+      html += `<span class="pr">${a}</span>` + (pr ? `<span class="cmd">${b}</span>` : b) + "\n";
+    }
+    return html;
+  }
+  function typeReadme() {
+    if (reduce.matches) { tty.innerHTML = readme(TOTAL) + LOADING; return; }
+    for (let n = 1; n <= TOTAL; n++) later(() => { tty.innerHTML = readme(n) + '<span class="caret">_</span>'; }, n * 20);
+    later(() => { tty.innerHTML = readme(TOTAL) + LOADING; }, TOTAL * 20 + 300);
+  }
+
+  // The headline: upon.dev decodes, the .dev falls away, the sentence grows around "upon".
+  const FLIP = 45;
+  const cell = () => lineEl.appendChild(document.createElement("span"));
+  function flip(s, t, n) {
+    for (let f = 0; f < n; f++) later(() => { s.className = "g"; s.textContent = pick(NOISE); }, t + f * FLIP);
+    return t + n * FLIP;
+  }
+  const settle = (s, ch, cls, t) => later(() => { s.className = cls; s.textContent = ch; }, t);
+  const type = (s, ch, t, n) => (ch === " " ? settle(s, " ", "", t) : settle(s, ch, "", flip(s, t, n)));
+
+  function tell() {
+    reset();
+    root.classList.add("telling");
+    if (reduce.matches) {
+      rainStill();
+      root.classList.add("in-matrix", "show-mark", "show-term");
+      document.body.classList.add("matrix");
+      mode = "matrix";
+      typeReadme();
+      return;
+    }
+    const pre = [..."Once "].map(cell);
+    const word = [..."upon.dev"].map(cell);
+    const post = [..." a time…"].map(cell);
+    let t = 400;
+    word.forEach((s, i) => settle(s, "upon.dev"[i], i >= 4 ? "m tld" : "m", flip(s, t + i * 80, 5)));
+    t += 8 * 80 + 5 * FLIP + 1300;
+    word.slice(4).reverse().forEach((s, i) => settle(s, "", "", flip(s, t + i * 70, 4)));
+    t += 4 * 70 + 4 * FLIP + 150;
+    word.slice(0, 4).forEach((s, i) => type(s, "upon"[i], t + i * 60, 3));
+    [..."Once "].forEach((ch, i) => type(pre[i], ch, t + i * 75, 5));
+    [..." a time…"].forEach((ch, i) => type(post[i], ch, t + 150 + i * 75, 5));
+    t += 150 + 9 * 75 + 5 * FLIP + 700;
+    // underline "upon", then the sentence carries on underneath
+    word.slice(0, 4).forEach((s, i) => later(() => s.classList.add("u", "on"), t + i * 160));
+    later(() => word.slice(0, 4).forEach((s) => s.classList.add("u")), t - 30);
+    t += 4 * 160 + 600;
+    later(() => root.classList.add("show-l2"), t);
+    t += 2200;
+
+    // the white page gives way to firelight
+    const goFilm = () => {
+      root.classList.remove("pre");
+      lineEl.classList.remove("jit"); line2El.classList.remove("jit");
+      root.classList.add("in-scene");
+      sx.clearRect(0, 0, W, H);
+      startFilm();
+      // start the rain early and out of sight, so it is full when we arrive
+      rainOn = true;
+    };
+    const tr = TRACKS[MODE.track || "warehouse"];
+    if (MODE.drop && soundOn) {
+      const l2 = (t - 2200) * MODE.tempo / 1000; // when the second line appears, in seconds from now
+      musicStart(tr.drop - (l2 + DROP_LEAD));
+      dropWatch(tr, goFilm, t);
+    } else {
+      musicStart();
+      later(goFilm, t);
+    }
+  }
+
+  // On the first drum hit the white page strobes neon, one colour per kick, then cuts to the film on a beat.
+  // If the music never starts (blocked or muted), the old timing takes over.
+  function dropWatch(tr, goFilm, t) {
+    const B = 60 / tr.bpm, dropBeat = Math.round((tr.drop - tr.first) / B);
+    let started = false, fellBack = false;
+    later(() => { if (!musicOn()) { fellBack = true; goFilm(); } }, t + 1500);
+    const tick = () => {
+      if (fellBack || !root.classList.contains("telling") || mode !== "idle") return;
+      if (musicOn()) {
+        const b = beatNow() - dropBeat;
+        if (b >= 0) {
+          const k = Math.floor(b), c = MODES.void.flash, n = c.length - 1;
+          if (!started) { started = true; root.classList.add("pre"); fxN = 4; flash(2); }
+          root.style.setProperty("--pre-bg", c[k % n]);
+          root.style.setProperty("--pre-ink", k % 2 ? "#000" : c[(k + 2) % n]);
+          const j = b - k < 0.5; lineEl.classList.toggle("jit", j); line2El.classList.toggle("jit", j);
+          if (fxFrames > 0 && --fxFrames === 0) fxEl.classList.remove("on");
+          if (b >= PRE_BEATS) { fxEl.classList.remove("on"); goFilm(); return; }
+        }
+      }
+      requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  }
+
+  function reset() {
+    timers.splice(0).forEach(clearTimeout);
+    if (typeof musicStop === "function" && actx) musicStop(0.15);
+    mode = "idle";
+    stopFilm();
+    rainOn = false;
+    capShown = "";
+    capEl.textContent = "";
+    capEl.classList.remove("on");
+    tty.innerHTML = "";
+    termEl.classList.remove("min");
+    lineEl.textContent = "";
+    root.classList.remove("telling", "in-scene", "in-matrix", "show-mark", "show-term", "show-l2", "pre");
+    if (typeof fxReset === "function") fxReset();
+    koShow(-1);
+    document.body.classList.remove("matrix");
+    drops = [];
+    eggOut = false;
+    sizeRain();
+  }
+
+  function back() {
+    termEl.classList.add("min");
+    setTimeout(() => { reset(); enter.focus({ preventScroll: true }); }, reduce.matches ? 0 : 480);
+  }
+
+  function resize() {
+    if (koLayers.length) buildKo();
+    DPR = Math.min(window.devicePixelRatio || 1, 2);
+    W = window.innerWidth;
+    H = window.innerHeight;
+    sizeRain();
+    sizeScene();
+    if (reduce.matches && mode === "matrix") rainStill();
+  }
+
+  window.addEventListener("resize", resize);
+  enter.addEventListener("click", tell);
+  document.getElementById("min").addEventListener("click", back);
+  document.getElementById("close").addEventListener("click", back);
+  window.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && root.classList.contains("telling")) back();
+    if (e.key === "Enter" && !root.classList.contains("telling") && document.activeElement !== enter) tell();
+  });
+
+  resize();
+  load(players[0], 0);
+  document.fonts.load("900 100px Inter").then(buildKo);
+  // one telling goes live; ?mode=original|strobe|void overrides it for testing
+  const DEFAULT_MODE = "void";
+  const asked = new URLSearchParams(location.search).get("mode");
+  MODE = reduce.matches ? MODES.original : MODES[MODES[asked] ? asked : DEFAULT_MODE];
+  prev = performance.now();
+  raf = requestAnimationFrame(frame);
+})();
+</script>
+
+</body></html>
